@@ -1,102 +1,119 @@
-local allowedPlaceId = 16732694052  
+-- 🔐 ป้องกันการถูกเตะจาก Anti-Cheat
+local mt = getrawmetatable(game)
+setreadonly(mt, false)
+local old = mt.__namecall
+mt.__namecall = newcclosure(function(self, ...)
+    local method = getnamecallmethod()
+    if method == "Kick" or tostring(self) == "Kick" then
+        warn("⛔ มีความพยายาม Kick แต่ถูกบล็อกไว้")
+        return nil
+    end
+    return old(self, ...)
+end)
 
-if game.PlaceId == allowedPlaceId then
-    
-    print("กำลังเล่นแผนที่ที่อนุญาต")
-else
-    -- ถ้า PlaceId ไม่ตรง, เด้งผู้เล่นออกพร้อมข้อความ
-    game.Players.LocalPlayer:Kick("มึงใช้สคริปให้ถูกแมพ!")  
+-- ✅ ตรวจสอบ PlaceId
+local allowedPlaceId = 16732694052  
+if game.PlaceId ~= allowedPlaceId then
+    warn("⚠️ คุณไม่ได้อยู่ในแมพที่สคริปต์ถูกออกแบบมา อาจทำงานไม่สมบูรณ์")
 end
 
-local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/xHeptc/Kavo-UI-Library/main/source.lua"))()
-local Window = Library.CreateLib("GOD STONE", "DarkTheme")
+-- ✅ โหลด UI Library อย่างปลอดภัย
+local success, Library = pcall(function()
+    return loadstring(game:HttpGet("https://raw.githubusercontent.com/xHeptc/Kavo-UI-Library/main/source.lua"))()
+end)
 
--- [[ ตัวแปรสถานะ ]]
+if not success then
+    warn("ไม่สามารถโหลด UI Library ได้")
+    return
+end
+
+local Window = Library.CreateLib("System Config", "DarkTheme")
+
+-- 🧠 ตัวแปรสถานะ
 local autoRunning = false
 local autoThreads = {}
 
--- [[ TAB: AutoFrame ]]
-local Tab = Window:NewTab("AutoFrame")
-local Section = Tab:NewSection("รวม AutoEquip, Cast, AutoShake และ AutoReel")
+-- 🪝 TAB: AutoTool
+local Tab = Window:NewTab("System Monitor")
+local Section = Tab:NewSection("Fishing Automation")
 
-Section:NewToggle("Click", "เริ่ม/หยุดระบบอัตโนมัติ", function(state)
+Section:NewToggle("Start Auto", "เปิด/ปิดระบบอัตโนมัติ", function(state)
     autoRunning = state
     if state then
-        print("✅ เริ่มระบบ AutoFishing")
+        print("✅ เริ่มระบบอัตโนมัติ")
 
-        -- ▶️ ระบบ AutoLoop
+        -- AutoLoop (Cast Rod)
         autoThreads.loop = task.spawn(function()
             while autoRunning do
-                local Players = game:GetService("Players")
-                local ReplicatedStorage = game:GetService("ReplicatedStorage")
-                local LocalPlayer = Players.LocalPlayer
-                local Char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+                pcall(function()
+                    local Players = game:GetService("Players")
+                    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+                    local LocalPlayer = Players.LocalPlayer
+                    local Char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
 
-                -- Equip Rod
-                if LocalPlayer.Backpack:FindFirstChild("Poseidon Rod") then
-                    LocalPlayer.Character.Humanoid:EquipTool(LocalPlayer.Backpack:FindFirstChild("Poseidon Rod"))
-                end
-                task.wait(0.5)
+                    local rodTool = LocalPlayer.Backpack:FindFirstChild("Poseidon Rod")
+                    if rodTool then
+                        LocalPlayer.Character.Humanoid:EquipTool(rodTool)
+                    end
 
-                -- Cast Rod
-                local Rod = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
-                if Rod and Rod:FindFirstChild("events") and Rod.events:FindFirstChild("cast") then
-                    Rod.events.cast:FireServer(100, 1)
-                    print("🎣 Cast เรียบร้อย")
-                end
+                    task.wait(math.random(5, 7) / 10)
 
-                task.wait(0.1)
+                    local Rod = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
+                    if Rod and Rod:FindFirstChild("events") and Rod.events:FindFirstChild("cast") then
+                        Rod.events.cast:FireServer(100, 1)
+                        print("🎣 Cast เบ็ดแล้ว")
+                    end
+                end)
+                task.wait(math.random(6, 9) / 10)
             end
         end)
 
-        -- ▶️ ระบบ AutoShake
+        -- AutoShake
         autoThreads.shake = task.spawn(function()
-            local GuiService = game:GetService("GuiService")
-            local LocalPlayer = game:GetService("Players").LocalPlayer
-            local GUI = LocalPlayer:WaitForChild("PlayerGui")
             local vim = game:GetService("VirtualInputManager")
+            local GUI = game.Players.LocalPlayer:WaitForChild("PlayerGui")
 
             while autoRunning do
-                local shakeui = GUI:FindFirstChild("shakeui")
-                if shakeui and shakeui.Enabled then
-                    local safezone = shakeui:FindFirstChild("safezone")
-                    if safezone then
-                        local button = safezone:FindFirstChild("button")
-                        if button and button:IsA("ImageButton") and button.Visible then
-                            GuiService.SelectedCoreObject = button
-                            task.wait(0.1)
-                            vim:SendKeyEvent(true, Enum.KeyCode.Return, false, game)
-                            vim:SendKeyEvent(false, Enum.KeyCode.Return, false, game)
-                            print("🌀 AutoShake: คลิกปุ่มแล้ว")
+                pcall(function()
+                    local shakeui = GUI:FindFirstChild("shakeui")
+                    if shakeui and shakeui.Enabled then
+                        local safezone = shakeui:FindFirstChild("safezone")
+                        if safezone then
+                            local button = safezone:FindFirstChild("button")
+                            if button and button:IsA("ImageButton") and button.Visible then
+                                vim:SendKeyEvent(true, Enum.KeyCode.Return, false, game)
+                                vim:SendKeyEvent(false, Enum.KeyCode.Return, false, game)
+                                print("🌀 AutoShake: คลิกปุ่มแล้ว")
+                            end
                         end
                     end
-                end
-                task.wait(0.05)
+                end)
+                task.wait(math.random(4, 7) / 100)
             end
         end)
 
-        -- ▶️ ระบบ AutoReel
+        -- AutoReel
         autoThreads.reel = task.spawn(function()
+            local GUI = game.Players.LocalPlayer:WaitForChild("PlayerGui")
             local ReplicatedStorage = game:GetService("ReplicatedStorage")
-            local LocalPlayer = game:GetService("Players").LocalPlayer
-            local GUI = LocalPlayer:WaitForChild("PlayerGui")
             local reelfinished = ReplicatedStorage:FindFirstChild("events") and ReplicatedStorage.events:FindFirstChild("reelfinished")
 
-            if not reelfinished or not reelfinished:IsA("RemoteEvent") then return end
-
             while autoRunning do
-                for _, v in pairs(GUI:GetChildren()) do
-                    if v:IsA("ScreenGui") and v.Name == "reel" and v:FindFirstChild("bar") then
-                        reelfinished:FireServer(100, true)
-                        print("✅ AutoReel: ดึงเบ็ดแล้ว")
+                pcall(function()
+                    if not reelfinished then return end
+                    for _, v in pairs(GUI:GetChildren()) do
+                        if v:IsA("ScreenGui") and v.Name == "reel" and v:FindFirstChild("bar") then
+                            reelfinished:FireServer(100, true)
+                            print("✅ AutoReel: ดึงเบ็ด")
+                        end
                     end
-                end
-                task.wait(0.1)
+                end)
+                task.wait(math.random(5, 8) / 10)
             end
         end)
 
     else
-        print("⛔ ปิดระบบ AutoFishing")
+        print("⛔ ปิดระบบอัตโนมัติ")
         for _, thread in pairs(autoThreads) do
             if thread then task.cancel(thread) end
         end
@@ -104,21 +121,14 @@ Section:NewToggle("Click", "เริ่ม/หยุดระบบอัตโ
     end
 end)
 
--- [[ TAB: ตั้งค่า ]]
-local Tab2 = Window:NewTab("ตั้งค่า")
-local Section2 = Tab2:NewSection("UI Settings")
-Section2:NewKeybind("เปิด/ปิด UI", "กดเพื่อซ่อน/แสดง", Enum.KeyCode.F, function()
-	Library:ToggleUI()
+-- ⚙️ UI Settings Tab
+local Tab2 = Window:NewTab("Interface")
+local Section2 = Tab2:NewSection("UI Options")
+
+Section2:NewKeybind("Toggle UI", "แสดง/ซ่อนหน้าต่าง", Enum.KeyCode.F, function()
+    Library:ToggleUI()
 end)
-Section2:NewColorPicker("ตั้งค่าสี", "เปลี่ยนสีเทส", Color3.fromRGB(255, 255, 255), function(color)
-    print("🎨 Color Picker:", color)
-end)
-local Tab = Window:NewTab("TabName")
-local Section = Tab:NewSection("Section Name")
-Section:NewToggle("ToggleText", "ToggleInfo", function(state)
-    if state then
-        print("Toggle On")
-    else
-        print("Toggle Off")
-    end
+
+Section2:NewColorPicker("UI Color", "เลือกสี UI", Color3.fromRGB(255, 255, 255), function(color)
+    print("🎨 เปลี่ยนสี UI:", color)
 end)
